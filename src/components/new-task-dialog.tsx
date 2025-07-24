@@ -49,7 +49,7 @@ const formSchema = z.object({
   assigneeId: z.string().min(1, "Assignee is required"),
   status: z.enum(["To Do", "In Progress", "Done"]),
   priority: z.enum(["Low", "Medium", "High"]),
-  dueDate: z.date(),
+  dueDate: z.date().optional(),
 });
 
 type TaskFormValues = z.infer<typeof formSchema>;
@@ -71,6 +71,7 @@ export function NewTaskDialog({ children, taskToEdit }: NewTaskDialogProps) {
         ...taskToEdit,
         status: taskToEdit.status || "To Do",
         priority: taskToEdit.priority || "Medium",
+        dueDate: taskToEdit.dueDate || new Date(),
     } : {
       title: "",
       description: "",

@@ -1,10 +1,10 @@
 import { Task, User } from './types';
 
 export const users: User[] = [
-  { id: '1', name: 'Alice', avatar: 'https://placehold.co/32x32/E9C46A/264653.png', initials: 'A', "data-ai-hint": "woman portrait" },
-  { id: '2', name: 'Bob', avatar: 'https://placehold.co/32x32/F4A261/264653.png', initials: 'B', "data-ai-hint": "man portrait" },
-  { id: '3', name: 'Charlie', avatar: 'https://placehold.co/32x32/E76F51/FFFFFF.png', initials: 'C', "data-ai-hint": "person smiling" },
-  { id: '4', name: 'Diana', avatar: 'https://placehold.co/32x32/2A9D8F/FFFFFF.png', initials: 'D', "data-ai-hint": "woman software" },
+  { id: '1', name: 'Alice', avatar: 'https://placehold.co/32x32/E9C46A/264653.png', initials: 'A' },
+  { id: '2', name: 'Bob', avatar: 'https://placehold.co/32x32/F4A261/264653.png', initials: 'B' },
+  { id: '3', name: 'Charlie', avatar: 'https://placehold.co/32x32/E76F51/FFFFFF.png', initials: 'C' },
+  { id: '4', name: 'Diana', avatar: 'https://placehold.co/32x32/2A9D8F/FFFFFF.png', initials: 'D' },
 ];
 
 export const tasks: Task[] = [

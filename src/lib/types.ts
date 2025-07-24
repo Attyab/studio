@@ -14,6 +14,6 @@ export interface Task {
   description: string;
   status: Status;
   priority: Priority;
-  dueDate: Date;
+  dueDate?: Date;
   assigneeId: string;
 }

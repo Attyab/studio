@@ -104,7 +104,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
                     )}
                   </TableCell>
                 )}
-                <TableCell>{task.dueDate.toLocaleDateString()}</TableCell>
+                <TableCell>{task.dueDate?.toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <TaskActions task={task} />
                 </TableCell>

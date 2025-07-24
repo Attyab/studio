@@ -10,7 +10,12 @@ export function useTaskStore() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    setTasks(initialTasks);
+    // Give each task a default due date if it doesn't have one.
+    const tasksWithDefaults = initialTasks.map(task => ({
+      ...task,
+      dueDate: task.dueDate ?? new Date(),
+    }));
+    setTasks(tasksWithDefaults);
     setUsers(initialUsers);
     setCurrentUser(initialUsers[0] || null);
   }, []);
@@ -32,7 +37,7 @@ export function useTaskStore() {
   const addTask = useCallback((task: Omit<Task, 'id'>) => {
     setTasks((prevTasks) => [
       ...prevTasks,
-      { ...task, id: `TASK-${Date.now()}` },
+      { ...task, id: `TASK-${Date.now()}`, dueDate: task.dueDate ?? new Date() },
     ]);
   }, []);
 
