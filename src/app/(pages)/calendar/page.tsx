@@ -13,13 +13,13 @@ export default function CalendarPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
 
   const tasksWithDueDate = tasks.filter(task => task.dueDate);
-  const taskDates = tasksWithDueDate.map(task => task.dueDate);
+  const taskDates = tasksWithDueDate.map(task => new Date(task.dueDate!));
 
   const selectedDateTasks = date
     ? tasks.filter(
         (task) =>
           task.dueDate &&
-          format(task.dueDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+          format(new Date(task.dueDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
       )
     : [];
 
@@ -55,7 +55,7 @@ export default function CalendarPage() {
                 <CardDescription>
                     {selectedDateTasks.length} task{selectedDateTasks.length !== 1 ? 's' : ''} due on this day.
                 </CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent>
                 <TaskTable tasks={selectedDateTasks} showAssignee={true} />
             </CardContent>
