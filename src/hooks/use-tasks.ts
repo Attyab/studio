@@ -30,7 +30,7 @@ export function useTaskStore() {
       setUsers(localUsers);
     } else if (usersData && usersData.length > 0) {
       // If data is successfully fetched, use it instead of local data.
-      setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map(n => n[0]).join('') })));
+      setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map((n:string) => n[0]).join('') })));
     } else {
       // If no data is returned (likely RLS), stick with the local data.
       setUsers(localUsers);
@@ -50,18 +50,21 @@ export function useTaskStore() {
 
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
     if (sessionUser) {
-        const { data: profile } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
+        const { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
 
         if (profile) {
             setCurrentUser({...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')});
         } else {
-            const name = sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
+            // This fallback is critical when RLS blocks fetching the user's own profile.
+            console.error("Could not fetch user profile from DB, using fallback data.", profileError);
+            const localUser = localUsers.find(u => u.email === sessionUser.email)
+            const name = localUser?.name || sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
             const initials = name.split(' ').map((n: string) => n[0]).join('');
             const fallbackUser = {
                 id: sessionUser.id,
                 name,
                 email: sessionUser.email!,
-                avatar: sessionUser.user_metadata?.avatar_url || '',
+                avatar: localUser?.avatar || sessionUser.user_metadata?.avatar_url || '',
                 initials
             };
             setCurrentUser(fallbackUser);
@@ -176,7 +179,7 @@ export function useTaskStore() {
           // For a full multi-user experience, RLS policies must be fixed.
           const realUser = await supabase.from('users').select('*').eq('id', userId).single();
           if (realUser.data) {
-              setCurrentUser({...realUser.data, initials: realUser.data.name.split(' ').map(n => n[0]).join('')});
+              setCurrentUser({...realUser.data, initials: realUser.data.name.split(' ').map((n:string) => n[0]).join('')});
           } else {
                console.error("Could not switch to user in DB, using local data.");
                setCurrentUser(user);
@@ -270,3 +273,5 @@ export function useTaskStore() {
     signup,
   };
 }
+
+    
