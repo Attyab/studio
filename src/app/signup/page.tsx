@@ -18,6 +18,7 @@ import { useTasks } from '@/context/task-store-provider';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Flame, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -51,56 +52,67 @@ export default function SignupPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-      <div className="flex items-center gap-2 mb-6 text-2xl font-semibold">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center gap-2 mb-6 text-2xl font-semibold"
+      >
           <div className="p-2 rounded-lg bg-primary text-primary-foreground">
               <Flame className="w-6 h-6" />
           </div>
           <h1>FIRE Tasks</h1>
-      </div>
-      <Card className="w-full max-w-sm">
-        <form onSubmit={handleSubmit}>
-          <CardHeader>
-            <CardTitle className="text-2xl">Sign Up</CardTitle>
-            <CardDescription>
-              Enter your information to create an account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="full-name">Full name</Label>
-              <Input id="full-name" placeholder="John Doe" required value={name} onChange={(e) => setName(e.target.value)} disabled={loading}/>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading}/>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
-              Create account
-            </Button>
-            <div className="mt-4 text-center text-sm">
-              Already have an account?{' '}
-              <Link href="/login" className="underline">
-                Sign in
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <Card className="w-full max-w-sm">
+          <form onSubmit={handleSubmit}>
+            <CardHeader>
+              <CardTitle className="text-2xl">Sign Up</CardTitle>
+              <CardDescription>
+                Enter your information to create an account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="full-name">Full name</Label>
+                <Input id="full-name" placeholder="John Doe" required value={name} onChange={(e) => setName(e.target.value)} disabled={loading}/>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading}/>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col">
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                Create account
+              </Button>
+              <div className="mt-4 text-center text-sm">
+                Already have an account?{' '}
+                <Link href="/login" className="underline">
+                  Sign in
+                </Link>
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
+      </motion.div>
     </div>
   );
 }
