@@ -14,15 +14,12 @@ export function useTaskStore() {
   const [error, setError] = useState<PostgrestError | AuthError | null>(null);
   const supabase = getSupabaseBrowserClient();
 
-  const fetchUsers = useCallback(async (loggedInUser: User | null) => {
+  const fetchUsers = useCallback(async () => {
     const { data: usersData, error: usersError } = await supabase.from('users').select('*');
-    if (usersError || !usersData || usersData.length === 0) {
-      console.error('Error fetching users, falling back to current user:', usersError);
-      if (loggedInUser) {
-        setUsers([loggedInUser]);
-      } else {
-        setUsers([]);
-      }
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      setError(usersError);
+      setUsers([]);
     } else {
       setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map((n:string) => n[0]).join('') })));
     }
@@ -43,23 +40,15 @@ export function useTaskStore() {
     if (sessionUser) {
         const { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
         
-        let user: User;
-        if (profile) {
-            user = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
-        } else {
+        if (profileError || !profile) {
             console.error("Could not fetch user profile from DB.", profileError);
-            const name = sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
-            user = {
-                id: sessionUser.id,
-                name,
-                email: sessionUser.email!,
-                avatar: sessionUser.user_metadata?.avatar_url || '',
-                initials: name.split(' ').map((n: string) => n[0]).join('')
-            };
+             setCurrentUser(null);
+        } else {
+            const user: User = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
+            setCurrentUser(user);
+            await fetchTasks();
+            await fetchUsers();
         }
-        setCurrentUser(user);
-        await fetchTasks();
-        await fetchUsers(user);
     } else {
         setCurrentUser(null);
         setTasks([]);
@@ -212,28 +201,8 @@ export function useTaskStore() {
         throw error;
     }
 
-    if (data.user) {
-        const { error: insertError } = await supabase.from('users').insert({
-            id: data.user.id,
-            name: name,
-            email: email,
-            avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`
-        });
-
-        if (insertError) {
-            console.error('Error creating user profile:', insertError.message);
-        } else {
-            const newUser = {
-                id: data.user.id,
-                name,
-                email,
-                avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`,
-                initials: name.split(' ').map(n=>n[0]).join(''),
-            };
-            setUsers(prev => [...prev, newUser]);
-        }
-    }
-    // onAuthStateChange will handle setting the current user
+    // The user profile will be created by a trigger in Supabase.
+    // onAuthStateChange will handle setting the current user and fetching data.
   };
 
   return {
