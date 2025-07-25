@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   SidebarProvider,
@@ -20,7 +20,8 @@ import {
   CalendarDays,
   ListTodo,
   Flame,
-  Bell
+  Bell,
+  LogOut,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -31,11 +32,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from '@/components/ui/button';
-import { TaskStoreProvider, useTasks } from '@/context/task-store-provider';
+import { useTasks } from '@/context/task-store-provider';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { users, currentUser, changeCurrentUser } = useTasks();
+  const router = useRouter();
+  const { users, currentUser, changeCurrentUser, logout } = useTasks();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   const menuItems = [
     { href: '/', label: 'My Dashboard', icon: LayoutDashboard },
@@ -113,10 +128,24 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
                 <Button variant="ghost" size="icon" aria-label="Notifications">
                     <Bell className="w-5 h-5" />
                 </Button>
-                <Avatar>
-                  <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} data-ai-hint="woman portrait"/>
-                  <AvatarFallback>{currentUser?.initials}</AvatarFallback>
-                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" className="relative w-8 h-8 rounded-full">
+                        <Avatar>
+                          <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} data-ai-hint="woman portrait"/>
+                          <AvatarFallback>{currentUser?.initials}</AvatarFallback>
+                        </Avatar>
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
@@ -128,9 +157,21 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useTasks();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  React.useEffect(() => {
+    if (!currentUser && pathname !== '/login' && pathname !== '/signup') {
+      router.push('/login');
+    }
+  }, [currentUser, pathname, router]);
+
+  if (!currentUser) {
+    return <>{children}</>;
+  }
+
   return (
-    <TaskStoreProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </TaskStoreProvider>
-  )
+    <AppShellContent>{children}</AppShellContent>
+  );
 }

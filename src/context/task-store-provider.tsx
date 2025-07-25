@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useTaskStore } from '@/hooks/use-tasks';
+import { useRouter } from 'next/navigation';
 
 type TaskStoreContextType = ReturnType<typeof useTaskStore>;
 

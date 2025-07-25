@@ -17,7 +17,13 @@ export function useTaskStore() {
     }));
     setTasks(tasksWithDefaults);
     setUsers(initialUsers);
-    setCurrentUser(initialUsers[0] || null);
+    
+    // Check for a logged-in user in localStorage
+    const loggedInUser = localStorage.getItem('currentUser');
+    if (loggedInUser) {
+        const foundUser = initialUsers.find(u => u.id === loggedInUser);
+        setCurrentUser(foundUser || null);
+    }
   }, []);
 
   const getTasksByUserId = useCallback(
@@ -53,8 +59,40 @@ export function useTaskStore() {
   
   const changeCurrentUser = useCallback((userId: string) => {
       const user = users.find(u => u.id === userId);
-      setCurrentUser(user || null);
+      if (user) {
+        setCurrentUser(user);
+        localStorage.setItem('currentUser', user.id);
+      }
   }, [users]);
+
+  const login = useCallback((email: string, password?: string): boolean => {
+    // NOTE: In a real app, you'd validate the password. Here we're just finding the user by email.
+    const user = users.find(u => u.email === email);
+    if (user) {
+        setCurrentUser(user);
+        localStorage.setItem('currentUser', user.id);
+        return true;
+    }
+    return false;
+  }, [users]);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    localStorage.removeItem('currentUser');
+  }, []);
+
+  const signup = useCallback((name: string, email: string, password?: string) => {
+    const newUser: User = {
+        id: `user-${Date.now()}`,
+        name,
+        email,
+        avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.charAt(0)}`,
+        initials: name.charAt(0).toUpperCase()
+    };
+    setUsers(prevUsers => [...prevUsers, newUser]);
+    setCurrentUser(newUser);
+    localStorage.setItem('currentUser', newUser.id);
+  }, []);
 
   return {
     tasks,
@@ -66,5 +104,8 @@ export function useTaskStore() {
     updateTask,
     deleteTask,
     changeCurrentUser,
+    login,
+    logout,
+    signup,
   };
 }

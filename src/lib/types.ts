@@ -4,6 +4,7 @@ export type Priority = 'Low' | 'Medium' | 'High';
 export interface User {
   id: string;
   name: string;
+  email: string;
   avatar: string;
   initials: string;
 }
