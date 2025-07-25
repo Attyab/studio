@@ -184,24 +184,44 @@ export function useTaskStore() {
         throw new Error("Password is required for signup.");
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ 
-        email, 
+
+    // 1. Sign up the user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
         password,
-        options: {
-            data: {
-                full_name: name,
-            }
-        }
     });
 
-    if (error) {
-        console.error('Signup failed:', error.message);
+    if (authError) {
+        console.error('Signup failed:', authError.message);
         setLoading(false);
-        throw error;
+        throw authError;
+    }
+    
+    if (!authData.user) {
+        const err = new Error("Signup succeeded but no user was returned.");
+        console.error(err);
+        setLoading(false);
+        throw err;
     }
 
-    // The user profile will be created by a trigger in Supabase.
-    // onAuthStateChange will handle setting the current user and fetching data.
+    // 2. Manually insert the user profile into the public.users table
+    const { error: insertError } = await supabase.from('users').insert({
+        id: authData.user.id,
+        name: name,
+        email: email,
+        avatar: `https://placehold.co/128x128.png`
+    });
+
+    if (insertError) {
+        console.error('Error creating user profile:', insertError.message);
+        setError(insertError);
+        // Optional: We could try to clean up the auth user if profile creation fails,
+        // but for now we'll just log the error. The user will exist in auth but not have a profile.
+    }
+    
+    // onAuthStateChange will handle setting the current user and fetching data,
+    // which will now find the profile we just created.
+    setLoading(false);
   };
 
   return {
