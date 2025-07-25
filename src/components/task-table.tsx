@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -19,6 +20,7 @@ import { NewTaskDialog } from "./new-task-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ListTodo, Loader, CheckCircle2, Edit } from "lucide-react";
+import { motion } from "framer-motion";
 
 
 interface TaskTableProps {
@@ -27,9 +29,9 @@ interface TaskTableProps {
 }
 
 const priorityClasses: Record<Task['priority'], string> = {
-  High: 'bg-destructive',
+  High: 'bg-destructive/80',
   Medium: 'bg-accent',
-  Low: 'bg-primary',
+  Low: 'bg-primary/70',
 };
 
 const statusIcon: Record<Task['status'], React.ReactNode> = {
@@ -47,7 +49,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
 
   if (tasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg h-80 bg-card">
+      <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg h-80 bg-card/50">
         <h3 className="text-xl font-semibold">No tasks found</h3>
         <p className="text-muted-foreground">Get started by creating a new task.</p>
         <div className="mt-4">
@@ -77,7 +79,14 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
           {tasks.map((task) => {
             const assignee = getAssignee(task.assigneeId);
             return (
-              <TableRow key={task.id}>
+              <motion.tr 
+                key={task.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="hover:bg-muted/50 transition-colors"
+              >
                 <TableCell className="font-medium">{task.title}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="gap-2">
@@ -86,7 +95,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="gap-2">
+                  <Badge variant="secondary" className="gap-2 text-foreground/80">
                      <span className={cn("h-2 w-2 rounded-full", priorityClasses[task.priority])} />
                     {task.priority}
                   </Badge>
@@ -110,7 +119,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
                 <TableCell className="text-right">
                   <TaskActions task={task} onEdit={() => setTaskToEdit(task)} />
                 </TableCell>
-              </TableRow>
+              </motion.tr>
             );
           })}
         </TableBody>
