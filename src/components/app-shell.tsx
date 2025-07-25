@@ -24,7 +24,10 @@ import {
   Bell,
   LogOut,
   Loader2,
+  Moon,
+  Sun,
 } from 'lucide-react';
+import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
@@ -44,6 +47,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from './ui/skeleton';
+
+
+function ThemeToggle() {
+    const { setTheme, theme } = useTheme();
+
+    return (
+         <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            aria-label="Toggle theme"
+        >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+        </Button>
+    )
+}
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -129,6 +150,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between p-4 border-b bg-card">
             <SidebarTrigger />
             <div className="flex items-center gap-4">
+                <ThemeToggle />
                 <Button variant="ghost" size="icon" aria-label="Notifications">
                     <Bell className="w-5 h-5" />
                 </Button>

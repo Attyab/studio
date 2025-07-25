@@ -132,26 +132,26 @@ function DashboardContent() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-            <Card className="lg:col-span-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+        <motion.div className="lg:col-span-4" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
+            <Card>
               <CardHeader>
                 <CardTitle>My Tasks</CardTitle>
                 <CardDescription>A list of tasks assigned to you.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="h-[400px] overflow-auto">
                 <TaskTable tasks={userTasks} showAssignee={false} />
               </CardContent>
             </Card>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }}>
-            <Card className="lg:col-span-2">
+        <motion.div className="lg:col-span-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }}>
+            <Card>
                 <CardHeader>
                     <CardTitle>Task Status Overview</CardTitle>
                     <CardDescription>A visual breakdown of your tasks by status.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                     <ResponsiveContainer width="100%" height={300}>
+                <CardContent className="h-[400px]">
+                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false}/>
