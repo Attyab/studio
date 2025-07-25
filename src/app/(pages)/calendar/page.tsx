@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { useTasks } from "@/context/task-store-provider";
-import { Task } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import TaskTable from "@/components/task-table";
 import { format } from "date-fns";
@@ -55,7 +54,7 @@ export default function CalendarPage() {
                 <CardDescription>
                     {selectedDateTasks.length} task{selectedDateTasks.length !== 1 ? 's' : ''} due on this day.
                 </CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent>
                 <TaskTable tasks={selectedDateTasks} showAssignee={true} />
             </CardContent>
