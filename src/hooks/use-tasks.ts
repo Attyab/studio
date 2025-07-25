@@ -4,6 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Task, User, Status } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
+import { DUMMY_USERS } from '@/lib/data';
 
 export function useTaskStore() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -16,14 +17,13 @@ export function useTaskStore() {
   const fetchUsersAndTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
-
-    const { data: usersData, error: usersError } = await supabase.from('users').select('*');
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      setError(usersError);
-    } else {
-      setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map(n => n[0]).join('') })));
-    }
+    
+    // RLS policies are likely not set for the 'users' table.
+    // We are using a dummy list of users for now.
+    // To fix, go to your Supabase dashboard, select "Authentication" > "Policies",
+    // and create a new policy for the 'users' table to allow logged-in users to read it.
+    // For example, a policy with the rule `auth.role() = 'authenticated'`.
+    setUsers(DUMMY_USERS);
 
     const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
      if (tasksError) {
@@ -44,7 +44,12 @@ export function useTaskStore() {
         if (session) {
             const { data, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
             if (data) {
-                setCurrentUser({...data, initials: data.name.split(' ').map(n => n[0]).join('')});
+                const user = { ...data, initials: data.name.split(' ').map(n => n[0]).join('') };
+                setCurrentUser(user);
+                // Ensure the current user is in the local user list
+                if (!DUMMY_USERS.some(u => u.id === user.id)) {
+                  setUsers(prev => [user, ...prev]);
+                }
             }
         }
         await fetchUsersAndTasks();
@@ -88,7 +93,7 @@ export function useTaskStore() {
     }
 
     if (data) {
-        const newTask = {...data, dueDate: new Date(data.due_date), assigneeId: data.assignee_id};
+        const newTask = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
         setTasks(prevTasks => [...prevTasks, newTask]);
     }
   };
@@ -101,13 +106,17 @@ export function useTaskStore() {
         priority: updatedTask.priority,
         due_date: updatedTask.dueDate?.toISOString(),
         assignee_id: updatedTask.assigneeId
-    }).eq('id', updatedTask.id);
+    }).eq('id', updatedTask.id).select().single();
 
     if (error) {
         console.error('Error updating task:', error);
         throw error;
     }
-    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    
+    if(data) {
+        const newTask = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
+        setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? newTask : task));
+    }
   };
 
   const deleteTask = async (taskId: string) => {
@@ -141,7 +150,11 @@ export function useTaskStore() {
     if (data.user) {
         const { data: userData, error: userError } = await supabase.from('users').select('*').eq('id', data.user.id).single();
         if (userData) {
-          setCurrentUser({...userData, initials: userData.name.split(' ').map(n => n[0]).join('')});
+          const user = {...userData, initials: userData.name.split(' ').map(n => n[0]).join('')};
+          setCurrentUser(user);
+          if (!users.some(u => u.id === user.id)) {
+            setUsers(prev => [user, ...prev]);
+          }
         }
     }
     setLoading(false);
@@ -153,7 +166,7 @@ export function useTaskStore() {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setTasks([]);
-    setUsers([]);
+    setUsers(DUMMY_USERS); // Reset to dummy users on logout
     setLoading(false);
   };
 
@@ -202,7 +215,7 @@ export function useTaskStore() {
         };
         
         setCurrentUser(newUser);
-        setUsers(prev => [...prev, newUser]);
+        setUsers(prev => [newUser, ...prev]);
     }
     setLoading(false);
   };
