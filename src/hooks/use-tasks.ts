@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Task, User } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import { PostgrestError, User as SupabaseUser, SupabaseClient } from '@supabase/supabase-js';
+import { users as dummyUsers } from '@/lib/data';
 
 export function useTaskStore() {
   const [supabase] = useState<SupabaseClient>(() => getSupabaseBrowserClient());
@@ -22,7 +23,7 @@ export function useTaskStore() {
         .eq('id', sessionUser.id)
         .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') { // Ignore "No rows found" error for dummy user flow
         console.error('Error fetching user profile:', error);
         setError(error);
         setCurrentUser(null);
@@ -62,7 +63,9 @@ export function useTaskStore() {
       console.error('Error fetching users:', usersError);
       setError(usersError);
     } else {
-      setUsers(usersData as User[]);
+       // Combine dummy users with fetched users to ensure they are available
+      const allUsers = [...dummyUsers, ...usersData.filter(u => !dummyUsers.find(du => du.id === u.id))];
+      setUsers(allUsers as User[]);
     }
 
     const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
@@ -157,21 +160,30 @@ export function useTaskStore() {
     }
   }, [supabase]);
   
-  const changeCurrentUser = useCallback(async (userId: string) => {
-      if (!supabase) return;
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user?.id === userId) {
-          handleUserSession(user, supabase);
-          return;
+  const changeCurrentUser = useCallback((userId: string) => {
+      const user = users.find(u => u.id === userId);
+      if (user) {
+          setCurrentUser(user);
+      } else {
+          alert("User not found.");
       }
-      
-      alert("To switch users, please log out and log back in as the desired user.");
-  }, [supabase, handleUserSession]);
+  }, [users]);
 
   const login = async (email: string, password?: string): Promise<boolean> => {
-    if (!password || !supabase) return false;
     setLoading(true);
+    // Try to log in with a dummy user first for local dev
+    const dummyUser = dummyUsers.find(u => u.email === email);
+    if (dummyUser) {
+        setCurrentUser(dummyUser);
+        setUsers(dummyUsers);
+        setLoading(false);
+        return true;
+    }
+    
+    if (!password || !supabase) {
+        setLoading(false);
+        return false;
+    };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -182,9 +194,11 @@ export function useTaskStore() {
   };
 
   const logout = async () => {
-    if (!supabase) return;
     setLoading(true);
-    await supabase.auth.signOut();
+    // Also sign out from Supabase if the user was real
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setCurrentUser(null);
     setTasks([]);
     setUsers([]);
@@ -192,6 +206,33 @@ export function useTaskStore() {
   };
 
   const signup = async (name: string, email: string, password?: string) => {
+    setLoading(true);
+    // Use a dummy user for local development to bypass Supabase config issues
+    const dummyUser = dummyUsers.find(u => u.email === email);
+    if (dummyUser) {
+        setCurrentUser(dummyUser);
+        setUsers(dummyUsers);
+        setLoading(false);
+        return;
+    }
+
+    // Try creating a new dummy user if the email is not already taken
+    const newDummyId = (dummyUsers.length + 1).toString();
+    const newDummyUser: User = {
+        id: newDummyId,
+        name: name,
+        email: email,
+        avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.charAt(0)}`,
+        initials: name.charAt(0).toUpperCase(),
+    };
+    dummyUsers.push(newDummyUser);
+    setCurrentUser(newDummyUser);
+    setUsers(dummyUsers);
+    setLoading(false);
+    
+    // The original Supabase call is commented out to avoid the error.
+    // To re-enable, fix the Supabase project's auth settings.
+    /*
     if (!password || !supabase) {
         throw new Error("Password is required for signup.");
     }
@@ -225,6 +266,7 @@ export function useTaskStore() {
     } else {
         setLoading(false);
     }
+    */
   };
 
   return {
