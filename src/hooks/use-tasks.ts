@@ -69,7 +69,7 @@ export function useTaskStore() {
       console.error('Error fetching tasks:', tasksError);
       setError(tasksError);
     } else {
-      const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined}));
+      const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
       setTasks(formattedTasks as unknown as Task[]);
     }
     setLoading(false);

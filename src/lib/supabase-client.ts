@@ -3,6 +3,7 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// This is a singleton pattern to ensure we only have one instance of the Supabase client
 let client: SupabaseClient | undefined;
 
 export function getSupabaseBrowserClient() {
@@ -10,8 +11,13 @@ export function getSupabaseBrowserClient() {
     return client;
   }
 
-  return createBrowserClient(
+  // If the client doesn't exist, create it.
+  // The environment variables are passed in from the server component
+  // to ensure they are available on the client.
+  client = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  return client;
 }

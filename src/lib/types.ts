@@ -19,5 +19,4 @@ export interface Task {
   dueDate?: Date;
   assigneeId: string;
   due_date: string;
-  assignee_id: string;
 }
