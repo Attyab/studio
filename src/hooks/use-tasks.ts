@@ -14,21 +14,18 @@ export function useTaskStore() {
   const [error, setError] = useState<PostgrestError | AuthError | null>(null);
   const supabase = getSupabaseBrowserClient();
 
-  const fetchUsersAndTasks = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
+  const fetchUsers = useCallback(async () => {
     const { data: usersData, error: usersError } = await supabase.from('users').select('*');
     if (usersError) {
       console.error('Error fetching users:', usersError);
       setError(usersError);
-      // If we can't fetch users, we can't proceed with most of the app's functionality.
-      // But we can at least try to load tasks.
       setUsers([]);
     } else {
       setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map(n => n[0]).join('') })));
     }
+  }, [supabase]);
 
+  const fetchTasks = useCallback(async () => {
     const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
      if (tasksError) {
       console.error('Error fetching tasks:', tasksError);
@@ -37,10 +34,7 @@ export function useTaskStore() {
       const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
       setTasks(formattedTasks);
     }
-
-    setLoading(false);
   }, [supabase]);
-
 
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
     if (sessionUser) {
@@ -48,31 +42,33 @@ export function useTaskStore() {
 
         if (profile) {
             setCurrentUser({...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')});
-            await fetchUsersAndTasks();
         } else {
-            // Fallback if profile doesn't exist yet or fails to load
             const name = sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
             const initials = name.split(' ').map((n: string) => n[0]).join('');
-            setCurrentUser({
+            const fallbackUser = {
                 id: sessionUser.id,
                 name,
                 email: sessionUser.email!,
                 avatar: sessionUser.user_metadata?.avatar_url || '',
                 initials
-            });
-            await fetchUsersAndTasks();
+            };
+            setCurrentUser(fallbackUser);
         }
+        await fetchTasks();
     } else {
         setCurrentUser(null);
         setTasks([]);
-        setUsers([]);
     }
     setLoading(false);
-  }, [supabase, fetchUsersAndTasks]);
+  }, [supabase, fetchTasks]);
 
 
   useEffect(() => {
     setLoading(true);
+    // Fetch all users on initial load regardless of auth state
+    // This helps populate UI elements like assignee dropdowns
+    fetchUsers();
+
     const checkUser = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         await handleUserSession(session?.user ?? null);
@@ -90,7 +86,7 @@ export function useTaskStore() {
     return () => {
         subscription.unsubscribe();
     };
-  }, [supabase, handleUserSession]);
+  }, [supabase, handleUserSession, fetchUsers]);
 
   const getTasksByUserId = useCallback(
     (userId: string) => {
@@ -164,8 +160,6 @@ export function useTaskStore() {
   
   const changeCurrentUser = useCallback(async (userId: string) => {
       const user = users.find(u => u.id === userId);
-      // This function simulates switching user context locally
-      // For a real app, you would handle this via auth state changes.
       if (user) {
           setCurrentUser(user);
       } else {
@@ -182,7 +176,6 @@ export function useTaskStore() {
       setLoading(false);
       return false;
     }
-    // onAuthStateChange will handle setting the user
     return true;
   };
 
@@ -191,7 +184,6 @@ export function useTaskStore() {
     await supabase.auth.signOut();
     setCurrentUser(null);
     setTasks([]);
-    setUsers([]);
     setLoading(false);
   };
 
@@ -218,7 +210,6 @@ export function useTaskStore() {
     }
 
     if (data.user) {
-        // Insert into public.users table
         const { error: insertError } = await supabase.from('users').insert({
             id: data.user.id,
             name: name,
@@ -227,16 +218,20 @@ export function useTaskStore() {
         });
 
         if (insertError) {
-            console.error('Error creating user profile:', insertError.message || insertError);
+            console.error('Error creating user profile:', insertError.message);
             setError(insertError);
-            // Even if profile creation fails, the user is signed in.
-            // The onAuthStateChange listener will pick up the new user session and handle it.
-            // This provides a better user experience than throwing an error here.
+        } else {
+          // Manually add the new user to the local state to update the UI immediately
+          const newUser = {
+              id: data.user.id,
+              name,
+              email,
+              avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`,
+              initials: name.split(' ').map(n=>n[0]).join(''),
+          };
+          setUsers(prev => [...prev, newUser]);
         }
     }
-    
-    // onAuthStateChange will handle setting the user and loading data.
-    // No need to call setLoading(false) here, as the user session handler will do it.
   };
 
   return {
@@ -256,5 +251,3 @@ export function useTaskStore() {
     signup,
   };
 }
-
-    
