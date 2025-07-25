@@ -23,12 +23,21 @@ export function useTaskStore() {
         .eq('id', sessionUser.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // Ignore "No rows found" error for dummy user flow
+      if (error && error.code !== 'PGRST116') { 
         console.error('Error fetching user profile:', error);
         setError(error);
         setCurrentUser(null);
       } else if (userProfile) {
         setCurrentUser(userProfile as User);
+      } else {
+        // Fallback for user not in public.users table yet
+        const { data: newUser, error: newError } = await supabaseClient.from('users').insert({id: sessionUser.id, name: sessionUser.email, email: sessionUser.email, avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${sessionUser.email?.charAt(0)}`, initials: sessionUser.email?.charAt(0).toUpperCase() }).select().single();
+        if(newError) {
+           console.error('Error creating user profile:', newError);
+           setError(newError);
+        } else {
+            setCurrentUser(newUser as User);
+        }
       }
     } else {
       setCurrentUser(null);
@@ -63,19 +72,9 @@ export function useTaskStore() {
       console.error('Error fetching users:', usersError);
       setError(usersError);
     } else {
-       // Combine dummy users with fetched users to ensure they are available
-      const allUsers = [...dummyUsers, ...usersData.filter(u => !dummyUsers.find(du => du.id === u.id))];
-      setUsers(allUsers as User[]);
+      setUsers(usersData as User[]);
     }
 
-    // Load dummy tasks as a workaround for RLS issues
-    const formattedTasks = dummyTasks.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
-    setTasks(formattedTasks as unknown as Task[]);
-
-
-    // The original Supabase call is commented out to avoid the RLS error.
-    // To re-enable, fix the Supabase project's RLS policies for the 'tasks' table.
-    /*
     const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
      if (tasksError) {
       console.error('Error fetching tasks:', tasksError);
@@ -84,7 +83,6 @@ export function useTaskStore() {
       const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
       setTasks(formattedTasks as unknown as Task[]);
     }
-    */
     setLoading(false);
   }, [supabase]);
 
@@ -180,15 +178,6 @@ export function useTaskStore() {
 
   const login = async (email: string, password?: string): Promise<boolean> => {
     setLoading(true);
-    // Try to log in with a dummy user first for local dev
-    const dummyUser = dummyUsers.find(u => u.email === email);
-    if (dummyUser) {
-        setCurrentUser(dummyUser);
-        setUsers(dummyUsers);
-        setLoading(false);
-        return true;
-    }
-    
     if (!password || !supabase) {
         setLoading(false);
         return false;
@@ -204,7 +193,6 @@ export function useTaskStore() {
 
   const logout = async () => {
     setLoading(true);
-    // Also sign out from Supabase if the user was real
     if (supabase) {
       await supabase.auth.signOut();
     }
@@ -215,33 +203,6 @@ export function useTaskStore() {
   };
 
   const signup = async (name: string, email: string, password?: string) => {
-    setLoading(true);
-    // Use a dummy user for local development to bypass Supabase config issues
-    const dummyUser = dummyUsers.find(u => u.email === email);
-    if (dummyUser) {
-        setCurrentUser(dummyUser);
-        setUsers(dummyUsers);
-        setLoading(false);
-        return;
-    }
-
-    // Try creating a new dummy user if the email is not already taken
-    const newDummyId = (dummyUsers.length + 1).toString();
-    const newDummyUser: User = {
-        id: newDummyId,
-        name: name,
-        email: email,
-        avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.charAt(0)}`,
-        initials: name.charAt(0).toUpperCase(),
-    };
-    dummyUsers.push(newDummyUser);
-    setCurrentUser(newDummyUser);
-    setUsers(dummyUsers);
-    setLoading(false);
-    
-    // The original Supabase call is commented out to avoid the error.
-    // To re-enable, fix the Supabase project's auth settings.
-    /*
     if (!password || !supabase) {
         throw new Error("Password is required for signup.");
     }
@@ -268,14 +229,10 @@ export function useTaskStore() {
         setLoading(false);
         throw error;
     }
-
-    if (data.user) {
-        // The onAuthStateChange listener will handle setting the user session
-        // and we rely on the trigger to insert the user profile.
-    } else {
-        setLoading(false);
-    }
-    */
+    
+    // The onAuthStateChange listener will handle setting the user session.
+    // We manually set loading to false here after a successful call.
+    setLoading(false);
   };
 
   return {
