@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Task, User, Status, Priority } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
-import type { PostgrestError, AuthError } from '@supabase/supabase-js';
+import type { PostgrestError, AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
 export function useTaskStore() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -22,6 +22,9 @@ export function useTaskStore() {
     if (usersError) {
       console.error('Error fetching users:', usersError);
       setError(usersError);
+      // If we can't fetch users, we can't proceed with most of the app's functionality.
+      // But we can at least try to load tasks.
+      setUsers([]);
     } else {
       setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map(n => n[0]).join('') })));
     }
@@ -38,42 +41,56 @@ export function useTaskStore() {
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => {
-    const checkUser = async () => {
-        setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const { data, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-            if (data) {
-                setCurrentUser({...data, initials: data.name.split(' ').map(n => n[0]).join('')});
-                await fetchUsersAndTasks();
-            }
+
+  const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
+    if (sessionUser) {
+        const { data: profile } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
+
+        if (profile) {
+            setCurrentUser({...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')});
+            await fetchUsersAndTasks();
+        } else {
+            // Fallback if profile doesn't exist yet or fails to load
+            const name = sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
+            const initials = name.split(' ').map((n: string) => n[0]).join('');
+            setCurrentUser({
+                id: sessionUser.id,
+                name,
+                email: sessionUser.email!,
+                avatar: sessionUser.user_metadata?.avatar_url || '',
+                initials
+            });
+            await fetchUsersAndTasks();
         }
-        setLoading(false);
+    } else {
+        setCurrentUser(null);
+        setTasks([]);
+        setUsers([]);
+    }
+    setLoading(false);
+  }, [supabase, fetchUsersAndTasks]);
+
+
+  useEffect(() => {
+    setLoading(true);
+    const checkUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        await handleUserSession(session?.user ?? null);
     };
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            const fetchAndSetUser = async () => {
-                const { data, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-                if(data) {
-                    setCurrentUser({...data, initials: data.name.split(' ').map(n => n[0]).join('')});
-                    await fetchUsersAndTasks();
-                }
-            };
-            fetchAndSetUser();
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+            handleUserSession(session?.user ?? null);
         } else if (event === 'SIGNED_OUT') {
-            setCurrentUser(null);
-            setTasks([]);
-            setUsers([]);
+            handleUserSession(null);
         }
     });
 
     return () => {
         subscription.unsubscribe();
     };
-  }, [supabase, fetchUsersAndTasks]);
+  }, [supabase, handleUserSession]);
 
   const getTasksByUserId = useCallback(
     (userId: string) => {
@@ -165,7 +182,7 @@ export function useTaskStore() {
       setLoading(false);
       return false;
     }
-    setLoading(false);
+    // onAuthStateChange will handle setting the user
     return true;
   };
 
@@ -179,10 +196,13 @@ export function useTaskStore() {
   };
 
   const signup = async (name: string, email: string, password?: string) => {
+    if (!password) {
+        throw new Error("Password is required for signup.");
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({ 
         email, 
-        password: password || '',
+        password,
         options: {
             data: {
                 full_name: name,
@@ -207,17 +227,16 @@ export function useTaskStore() {
         });
 
         if (insertError) {
-            console.error('Error creating user profile:', insertError.message);
+            console.error('Error creating user profile:', insertError.message || insertError);
             setError(insertError);
-            // Optional: clean up the auth user if profile creation fails
-            // await supabase.auth.api.deleteUser(data.user.id);
-            setLoading(false);
-            throw insertError;
+            // Even if profile creation fails, the user is signed in.
+            // The onAuthStateChange listener will pick up the new user session and handle it.
+            // This provides a better user experience than throwing an error here.
         }
     }
     
-    setLoading(false);
-    // The onAuthStateChange listener will handle setting the current user
+    // onAuthStateChange will handle setting the user and loading data.
+    // No need to call setLoading(false) here, as the user session handler will do it.
   };
 
   return {
@@ -237,3 +256,5 @@ export function useTaskStore() {
     signup,
   };
 }
+
+    
