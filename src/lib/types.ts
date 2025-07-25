@@ -20,3 +20,12 @@ export interface Task {
   assigneeId: string;
   due_date: string | null;
 }
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  created_by: string;
+  members: User[];
+}

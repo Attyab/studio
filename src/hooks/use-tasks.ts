@@ -2,13 +2,14 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import { Task, User } from '@/lib/types';
+import { Task, User, Team } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import type { PostgrestError, AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
 export function useTaskStore() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<PostgrestError | AuthError | null>(null);
@@ -35,21 +36,38 @@ export function useTaskStore() {
       setTasks(formattedTasks);
     }
   }, [supabase]);
+  
+  const fetchTeams = useCallback(async () => {
+    const { data: teamsData, error: teamsError } = await supabase.from('teams').select(`*, members:team_members(users(*))`);
+    if (teamsError) {
+        console.error('Error fetching teams:', teamsError);
+        setError(teamsError as any);
+        setTeams([]);
+    } else {
+        const formattedTeams = teamsData.map(team => ({
+            ...team,
+            members: team.members.map((m: any) => ({
+                ...m.users,
+                initials: m.users.name.split(' ').map((n: string) => n[0]).join('')
+            }))
+        }));
+        setTeams(formattedTeams);
+    }
+  }, [supabase]);
+
 
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
     if (sessionUser) {
         let { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
         
-        if (profileError || !profile) {
-            console.error("Could not fetch user profile from DB.", profileError);
+        if (profileError && profileError.code === 'PGRST116') { // "PGRST116" is the code for "0 rows returned"
+            console.warn("User profile not found in public.users, creating it now.");
             
-            // If the profile doesn't exist, create it. This can happen if a user was created before the trigger was in place.
             const { data: newProfile, error: insertError } = await supabase
               .from('users')
               .insert({
                 id: sessionUser.id,
                 email: sessionUser.email!,
-                // Attempt to get name from metadata, otherwise fallback to email
                 name: sessionUser.user_metadata?.full_name || sessionUser.email!.split('@')[0],
                 avatar: sessionUser.user_metadata?.avatar_url || `https://placehold.co/128x128.png`
               })
@@ -59,25 +77,29 @@ export function useTaskStore() {
             if (insertError) {
               console.error("Failed to create missing user profile.", insertError);
               setCurrentUser(null);
-            } else {
-              profile = newProfile;
-            }
+              setLoading(false);
+              return;
+            } 
+            profile = newProfile;
+        } else if (profileError) {
+            console.error("Could not fetch user profile from DB.", profileError);
+            setCurrentUser(null);
+            setLoading(false);
+            return;
         }
         
-        if (profile) {
-            const user: User = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
-            setCurrentUser(user);
-            await fetchTasks();
-            await fetchUsers();
-        }
+        const user: User = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
+        setCurrentUser(user);
+        await Promise.all([fetchTasks(), fetchUsers(), fetchTeams()]);
 
     } else {
         setCurrentUser(null);
         setTasks([]);
         setUsers([]);
+        setTeams([]);
     }
     setLoading(false);
-  }, [supabase, fetchTasks, fetchUsers]);
+  }, [supabase, fetchTasks, fetchUsers, fetchTeams]);
 
 
   useEffect(() => {
@@ -137,6 +159,7 @@ export function useTaskStore() {
     if (data) {
         const newTask: Task = {
           ...data, 
+          id: data.id,
           dueDate: data.due_date ? new Date(data.due_date) : undefined, 
           assigneeId: data.assignee_id, 
           due_date: data.due_date
@@ -174,6 +197,7 @@ export function useTaskStore() {
     if (data) {
         const newTask: Task = {
             ...data, 
+            id: data.id,
             dueDate: data.due_date ? new Date(data.due_date) : undefined, 
             assigneeId: data.assignee_id,
             due_date: data.due_date
@@ -193,6 +217,43 @@ export function useTaskStore() {
     }
   };
   
+  const addTeam = async (name: string, description: string, memberIds: string[]) => {
+      if (!currentUser) throw new Error("User must be logged in to create a team");
+
+      const { data: teamData, error: teamError } = await supabase
+        .from('teams')
+        .insert({ name, description, created_by: currentUser.id })
+        .select()
+        .single();
+
+      if (teamError) {
+          console.error("Error creating team:", teamError);
+          setError(teamError);
+          throw teamError;
+      }
+      
+      const teamId = teamData.id;
+
+      const membersToInsert = memberIds.map(userId => ({
+          team_id: teamId,
+          user_id: userId
+      }));
+
+      const { error: memberError } = await supabase
+        .from('team_members')
+        .insert(membersToInsert);
+      
+      if (memberError) {
+          console.error("Error adding team members:", memberError);
+          // Optional: handle rollback of team creation
+          setError(memberError);
+          throw memberError;
+      }
+
+      await fetchTeams(); // Refresh the teams list
+  };
+
+
   const changeCurrentUser = useCallback(async (userId: string) => {
       const userToSwitchTo = users.find(u => u.id === userId);
       if (userToSwitchTo) {
@@ -238,6 +299,7 @@ export function useTaskStore() {
       options: {
         data: {
           full_name: name,
+          avatar_url: `https://placehold.co/128x128.png`
         },
       },
     });
@@ -255,6 +317,7 @@ export function useTaskStore() {
   return {
     tasks,
     users,
+    teams,
     currentUser,
     loading,
     error,
@@ -263,6 +326,7 @@ export function useTaskStore() {
     addTask,
     updateTask,
     deleteTask,
+    addTeam,
     changeCurrentUser,
     login,
     logout,
