@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Trash2, Edit } from "lucide-react";
 import { Task } from "@/lib/types";
 import { useTasks } from "@/context/task-store-provider";
-import { NewTaskDialog } from "./new-task-dialog";
 
 interface TaskActionsProps {
   task: Task;
+  onEdit: () => void;
 }
 
-export default function TaskActions({ task }: TaskActionsProps) {
+export default function TaskActions({ task, onEdit }: TaskActionsProps) {
   const { deleteTask } = useTasks();
 
   return (
@@ -29,12 +29,10 @@ export default function TaskActions({ task }: TaskActionsProps) {
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-            <NewTaskDialog taskToEdit={task}>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    <span>Edit</span>
-                </DropdownMenuItem>
-            </NewTaskDialog>
+            <DropdownMenuItem onSelect={onEdit}>
+                <Edit className="w-4 h-4 mr-2" />
+                <span>Edit</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"

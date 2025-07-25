@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import TaskActions from "./task-actions";
 import { NewTaskDialog } from "./new-task-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ListTodo, Loader, CheckCircle2 } from "lucide-react";
+import { ListTodo, Loader, CheckCircle2, Edit } from "lucide-react";
 
 
 interface TaskTableProps {
@@ -41,6 +41,7 @@ const statusIcon: Record<Task['status'], React.ReactNode> = {
 
 export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps) {
   const { users } = useTasks();
+  const [taskToEdit, setTaskToEdit] = useState<Task | undefined>(undefined);
 
   const getAssignee = (userId: string) => users.find((u) => u.id === userId);
 
@@ -59,6 +60,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
   }
 
   return (
+    <>
     <Card>
       <Table>
         <TableHeader>
@@ -106,7 +108,7 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
                 )}
                 <TableCell>{task.dueDate?.toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
-                  <TaskActions task={task} />
+                  <TaskActions task={task} onEdit={() => setTaskToEdit(task)} />
                 </TableCell>
               </TableRow>
             );
@@ -114,5 +116,17 @@ export default function TaskTable({ tasks, showAssignee = true }: TaskTableProps
         </TableBody>
       </Table>
     </Card>
+    {taskToEdit && (
+        <NewTaskDialog 
+            key={taskToEdit.id} // Re-mount the dialog when the task changes
+            taskToEdit={taskToEdit} 
+            open={!!taskToEdit} 
+            onOpenChange={(isOpen) => !isOpen && setTaskToEdit(undefined)}
+        >
+            {/* The trigger is not needed here as we control the dialog programmatically */}
+            <button className="hidden" />
+        </NewTaskDialog>
+    )}
+    </>
   );
 }

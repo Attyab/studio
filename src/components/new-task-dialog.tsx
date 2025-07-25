@@ -55,14 +55,19 @@ const formSchema = z.object({
 type TaskFormValues = z.infer<typeof formSchema>;
 
 interface NewTaskDialogProps {
-  children: ReactNode;
+  children?: ReactNode;
   taskToEdit?: Task;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function NewTaskDialog({ children, taskToEdit }: NewTaskDialogProps) {
-  const [open, setOpen] = useState(false);
+export function NewTaskDialog({ children, taskToEdit, open: controlledOpen, onOpenChange: setControlledOpen }: NewTaskDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{ priority: string, reasoning: string } | null>(null);
+
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = setControlledOpen ?? setInternalOpen;
 
   const { users, addTask, updateTask } = useTasks();
   const { toast } = useToast();
@@ -71,14 +76,14 @@ export function NewTaskDialog({ children, taskToEdit }: NewTaskDialogProps) {
         ...taskToEdit,
         status: taskToEdit.status || "To Do",
         priority: taskToEdit.priority || "Medium",
-        dueDate: taskToEdit.dueDate || new Date(),
+        dueDate: taskToEdit.dueDate || undefined,
     } : {
       title: "",
       description: "",
       assigneeId: "",
       status: "To Do" as Status,
       priority: "Medium" as Priority,
-      dueDate: new Date(),
+      dueDate: undefined,
     };
 
   const form = useForm<TaskFormValues>({
@@ -91,7 +96,11 @@ export function NewTaskDialog({ children, taskToEdit }: NewTaskDialogProps) {
       form.reset(defaultValues);
       setAiSuggestion(null);
     }
-  }, [open, taskToEdit, form, defaultValues]);
+  }, [open, taskToEdit, form]);
+
+  useEffect(() => {
+    form.reset(defaultValues)
+  }, [taskToEdit, form])
 
   const handleSuggestPriority = async () => {
     setIsAiLoading(true);
@@ -126,7 +135,7 @@ export function NewTaskDialog({ children, taskToEdit }: NewTaskDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>{taskToEdit ? "Edit Task" : "Create New Task"}</DialogTitle>
