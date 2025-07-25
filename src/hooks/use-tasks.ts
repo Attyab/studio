@@ -190,7 +190,6 @@ export function useTaskStore() {
         options: {
             data: {
                 full_name: name,
-                avatar_url: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`
             }
         }
     });
