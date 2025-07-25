@@ -208,6 +208,12 @@ export function useTaskStore() {
     });
 
     if (error) {
+        if (error.message.includes("is invalid")) {
+            const friendlyError = new Error("Signup failed. Please check your Supabase project's auth settings to ensure new user signups are enabled and the email provider is not blocked.");
+            console.error(friendlyError.message, error);
+            setLoading(false);
+            throw friendlyError;
+        }
         console.error('Signup failed:', error.message);
         setLoading(false);
         throw error;
