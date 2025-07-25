@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListTodo, Loader, CheckCircle2 } from "lucide-react";
 import TaskTable from "@/components/task-table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppShell } from "@/components/app-shell";
 
-export default function Dashboard() {
+function DashboardContent() {
   const { currentUser, getTasksByUserId } = useTasks();
 
   if (!currentUser) {
@@ -71,4 +72,13 @@ export default function Dashboard() {
       </div>
     </div>
   );
+}
+
+
+export default function Dashboard() {
+    return (
+        <AppShell>
+            <DashboardContent />
+        </AppShell>
+    );
 }

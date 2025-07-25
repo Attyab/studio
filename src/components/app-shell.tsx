@@ -167,8 +167,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [currentUser, pathname, router]);
 
-  if (!currentUser) {
+  if (!currentUser && (pathname === '/login' || pathname === '/signup')) {
     return <>{children}</>;
+  }
+  
+  if (!currentUser) {
+    return null; 
   }
 
   return (
