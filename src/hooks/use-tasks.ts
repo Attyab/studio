@@ -4,36 +4,76 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Task, User, Status, Priority } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
-import { DUMMY_USERS, DUMMY_TASKS } from '@/lib/data';
-import { PostgrestError } from '@supabase/supabase-js';
+import type { PostgrestError, AuthError } from '@supabase/supabase-js';
 
 export function useTaskStore() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<PostgrestError | null>(null);
+  const [error, setError] = useState<PostgrestError | AuthError | null>(null);
   const supabase = getSupabaseBrowserClient();
 
   const fetchUsersAndTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
     
-    // Using dummy data to avoid RLS issues on Supabase
-    setUsers(DUMMY_USERS);
-    setTasks(DUMMY_TASKS.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id})));
-    
-    // Set a default current user for the dummy data scenario
-    if (DUMMY_USERS.length > 0) {
-      setCurrentUser(DUMMY_USERS[0]);
+    const { data: usersData, error: usersError } = await supabase.from('users').select('*');
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      setError(usersError);
+    } else {
+      setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map(n => n[0]).join('') })));
+    }
+
+    const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
+     if (tasksError) {
+      console.error('Error fetching tasks:', tasksError);
+      setError(tasksError);
+    } else {
+      const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
+      setTasks(formattedTasks);
     }
 
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
-    fetchUsersAndTasks();
-  }, [fetchUsersAndTasks]);
+    const checkUser = async () => {
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const { data, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+            if (data) {
+                setCurrentUser({...data, initials: data.name.split(' ').map(n => n[0]).join('')});
+                await fetchUsersAndTasks();
+            }
+        }
+        setLoading(false);
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            const fetchAndSetUser = async () => {
+                const { data, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+                if(data) {
+                    setCurrentUser({...data, initials: data.name.split(' ').map(n => n[0]).join('')});
+                    await fetchUsersAndTasks();
+                }
+            };
+            fetchAndSetUser();
+        } else if (event === 'SIGNED_OUT') {
+            setCurrentUser(null);
+            setTasks([]);
+            setUsers([]);
+        }
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, [supabase, fetchUsersAndTasks]);
 
   const getTasksByUserId = useCallback(
     (userId: string) => {
@@ -49,28 +89,66 @@ export function useTaskStore() {
     [tasks]
   );
 
-  const addTask = async (task: Omit<Task, 'id' | 'due_date' | 'assignee_id'>) => {
+  const addTask = async (task: Omit<Task, 'id'| 'assignee_id' | 'due_date'>) => {
     if (!currentUser) throw new Error("User must be logged in to add a task");
     
-    const newTask: Task = {
-      id: (Math.random() * 10000).toString(),
-      ...task,
-      due_date: task.dueDate?.toISOString() || '',
-    };
-    
-    setTasks(prevTasks => [...prevTasks, newTask]);
+    const { data, error } = await supabase.from('tasks').insert([{ 
+        ...task,
+        assignee_id: task.assigneeId,
+        due_date: task.dueDate?.toISOString() 
+    }]).select().single();
+
+    if (error) {
+        console.error('Error adding task:', error);
+        setError(error);
+        return;
+    }
+
+    if (data) {
+        const newTask: Task = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
+        setTasks(prevTasks => [...prevTasks, newTask]);
+    }
   };
 
   const updateTask = async (updatedTask: Task) => {
-    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    const { data, error } = await supabase
+        .from('tasks')
+        .update({ 
+            ...updatedTask, 
+            assignee_id: updatedTask.assigneeId, 
+            due_date: updatedTask.dueDate?.toISOString()
+        })
+        .eq('id', updatedTask.id)
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error updating task:', error);
+        setError(error);
+        return;
+    }
+    
+    if (data) {
+        const newTask: Task = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
+        setTasks(prevTasks => prevTasks.map(task => task.id === newTask.id ? newTask : task));
+    }
   };
 
   const deleteTask = async (taskId: string) => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+
+    if (error) {
+        console.error('Error deleting task:', error);
+        setError(error);
+    } else {
+        setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    }
   };
   
-  const changeCurrentUser = useCallback((userId: string) => {
+  const changeCurrentUser = useCallback(async (userId: string) => {
       const user = users.find(u => u.id === userId);
+      // This function simulates switching user context locally
+      // For a real app, you would handle this via auth state changes.
       if (user) {
           setCurrentUser(user);
       } else {
@@ -80,47 +158,66 @@ export function useTaskStore() {
 
   const login = async (email: string, password?: string): Promise<boolean> => {
     setLoading(true);
-    const user = users.find(u => u.email === email);
-    if (user) {
-        setCurrentUser(user);
-        setLoading(false);
-        return true;
+    const { error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+    if (error) {
+      console.error('Login failed:', error.message);
+      setError(error);
+      setLoading(false);
+      return false;
     }
     setLoading(false);
-    return false;
+    return true;
   };
 
   const logout = async () => {
     setLoading(true);
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setTasks([]);
-    setUsers(DUMMY_USERS); // Reset to dummy users on logout
-    if(DUMMY_USERS.length > 0) {
-        // To avoid being redirected to login, we'll set a default user.
-        // In a real app, you would clear the user and redirect.
-        setCurrentUser(DUMMY_USERS[0]);
-    }
+    setUsers([]);
     setLoading(false);
   };
 
   const signup = async (name: string, email: string, password?: string) => {
     setLoading(true);
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) {
-        throw new Error('User already exists.');
+    const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password: password || '',
+        options: {
+            data: {
+                full_name: name,
+                avatar_url: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`
+            }
+        }
+    });
+
+    if (error) {
+        console.error('Signup failed:', error.message);
+        setLoading(false);
+        throw error;
     }
 
-    const newUser: User = {
-        id: (Math.random() * 10000).toString(),
-        name,
-        email,
-        avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`,
-        initials: name.split(' ').map(n => n[0]).join('')
-    };
+    if (data.user) {
+        // Insert into public.users table
+        const { error: insertError } = await supabase.from('users').insert({
+            id: data.user.id,
+            name: name,
+            email: email,
+            avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`
+        });
+
+        if (insertError) {
+            console.error('Error creating user profile:', insertError.message);
+            setError(insertError);
+            // Optional: clean up the auth user if profile creation fails
+            // await supabase.auth.api.deleteUser(data.user.id);
+            setLoading(false);
+            throw insertError;
+        }
+    }
     
-    setUsers(prev => [newUser, ...prev]);
-    setCurrentUser(newUser);
     setLoading(false);
+    // The onAuthStateChange listener will handle setting the current user
   };
 
   return {
