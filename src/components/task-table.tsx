@@ -30,8 +30,8 @@ interface TaskTableProps {
 
 const priorityClasses: Record<Task['priority'], string> = {
   High: 'bg-destructive/80',
-  Medium: 'bg-accent',
-  Low: 'bg-primary/70',
+  Medium: 'bg-yellow-500', // Changed for better visibility in dark theme
+  Low: 'bg-green-500',
 };
 
 const statusIcon: Record<Task['status'], React.ReactNode> = {
