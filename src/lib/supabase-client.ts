@@ -11,8 +11,8 @@ export function getSupabaseBrowserClient() {
     return client;
   }
 
-  const supUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supUrl = 'https://pqdvdpjrtaehnwcwptwa.supabase.co';
+  const supKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZHZkcGpydGFlaG53Y3dwdHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0MDIzNDYsImV4cCI6MjA2ODk3ODM0Nn0.dEpI8Ai0LTXltEbchZFVRuE9Iq-JmEAKbmt8JV26M98';
   
   if (!supUrl || !supKey) {
     throw new Error('@supabase/ssr: Your project\'s URL and API key are required to create a Supabase client! Check your .env file.');
