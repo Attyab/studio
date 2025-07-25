@@ -3,7 +3,6 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { SupabaseClient } from '@supabase/supabase-js';
 
-// This is a singleton pattern to ensure we only have one instance of the Supabase client
 let client: SupabaseClient | undefined;
 
 export function getSupabaseBrowserClient() {
@@ -11,12 +10,17 @@ export function getSupabaseBrowserClient() {
     return client;
   }
 
-  // If the client doesn't exist, create it.
-  // The environment variables are passed in from the server component
-  // to ensure they are available on the client.
+  const supUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supUrl || !supKey) {
+    // This check will now correctly throw the error if the variables are missing.
+    throw new Error('@supabase/ssr: Your project\'s URL and API key are required to create a Supabase client! Check your .env file.');
+  }
+
   client = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    supUrl,
+    supKey
   );
 
   return client;
