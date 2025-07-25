@@ -14,13 +14,16 @@ export function useTaskStore() {
   const [error, setError] = useState<PostgrestError | AuthError | null>(null);
   const supabase = getSupabaseBrowserClient();
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (loggedInUser: User | null) => {
     const { data: usersData, error: usersError } = await supabase.from('users').select('*');
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      setError(usersError);
-      setUsers([]);
-    } else if (usersData) {
+    if (usersError || !usersData || usersData.length === 0) {
+      console.error('Error fetching users, falling back to current user:', usersError);
+      if (loggedInUser) {
+        setUsers([loggedInUser]);
+      } else {
+        setUsers([]);
+      }
+    } else {
       setUsers(usersData.map(u => ({...u, initials: u.name.split(' ').map((n:string) => n[0]).join('') })));
     }
   }, [supabase]);
@@ -39,34 +42,35 @@ export function useTaskStore() {
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
     if (sessionUser) {
         const { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
-
+        
+        let user: User;
         if (profile) {
-            setCurrentUser({...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')});
+            user = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
         } else {
             console.error("Could not fetch user profile from DB.", profileError);
             const name = sessionUser.user_metadata?.full_name || sessionUser.email || 'New User';
-            const initials = name.split(' ').map((n: string) => n[0]).join('');
-            const fallbackUser = {
+            user = {
                 id: sessionUser.id,
                 name,
                 email: sessionUser.email!,
                 avatar: sessionUser.user_metadata?.avatar_url || '',
-                initials
+                initials: name.split(' ').map((n: string) => n[0]).join('')
             };
-            setCurrentUser(fallbackUser);
         }
+        setCurrentUser(user);
         await fetchTasks();
+        await fetchUsers(user);
     } else {
         setCurrentUser(null);
         setTasks([]);
+        setUsers([]);
     }
     setLoading(false);
-  }, [supabase, fetchTasks]);
+  }, [supabase, fetchTasks, fetchUsers]);
 
 
   useEffect(() => {
     setLoading(true);
-    fetchUsers();
 
     const checkUser = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -75,17 +79,13 @@ export function useTaskStore() {
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-            handleUserSession(session?.user ?? null);
-        } else if (event === 'SIGNED_OUT') {
-            handleUserSession(null);
-        }
+        handleUserSession(session?.user ?? null);
     });
 
     return () => {
         subscription.unsubscribe();
     };
-  }, [supabase, handleUserSession, fetchUsers]);
+  }, [supabase, handleUserSession]);
 
   const getTasksByUserId = useCallback(
     (userId: string) => {
@@ -158,13 +158,18 @@ export function useTaskStore() {
   };
   
   const changeCurrentUser = useCallback(async (userId: string) => {
-      const realUser = await supabase.from('users').select('*').eq('id', userId).single();
-      if (realUser.data) {
-          setCurrentUser({...realUser.data, initials: realUser.data.name.split(' ').map((n:string) => n[0]).join('')});
+      const userToSwitchTo = users.find(u => u.id === userId);
+      if (userToSwitchTo) {
+        setCurrentUser(userToSwitchTo);
       } else {
-           console.error("Could not switch to user in DB.");
+           const { data: realUser, error } = await supabase.from('users').select('*').eq('id', userId).single();
+            if (realUser) {
+                setCurrentUser({...realUser, initials: realUser.name.split(' ').map((n:string) => n[0]).join('')});
+            } else {
+                console.error("Could not switch to user in DB.", error);
+            }
       }
-  }, [supabase]);
+  }, [supabase, users]);
 
   const login = async (email: string, password?: string): Promise<boolean> => {
     setLoading(true);
@@ -175,15 +180,14 @@ export function useTaskStore() {
       setLoading(false);
       return false;
     }
+    // Session change will be handled by onAuthStateChange
     return true;
   };
 
   const logout = async () => {
     setLoading(true);
     await supabase.auth.signOut();
-    setCurrentUser(null);
-    setTasks([]);
-    setLoading(false);
+    // Session change will be handled by onAuthStateChange
   };
 
   const signup = async (name: string, email: string, password?: string) => {
@@ -218,19 +222,18 @@ export function useTaskStore() {
 
         if (insertError) {
             console.error('Error creating user profile:', insertError.message);
-            setError(insertError);
         } else {
-          // Manually add the new user to the local state to update the UI immediately
-          const newUser = {
-              id: data.user.id,
-              name,
-              email,
-              avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`,
-              initials: name.split(' ').map(n=>n[0]).join(''),
-          };
-          setUsers(prev => [...prev, newUser]);
+            const newUser = {
+                id: data.user.id,
+                name,
+                email,
+                avatar: `https://placehold.co/32x32/E9C46A/264653.png?text=${name.split(' ').map(n=>n[0]).join('')}`,
+                initials: name.split(' ').map(n=>n[0]).join(''),
+            };
+            setUsers(prev => [...prev, newUser]);
         }
     }
+    // onAuthStateChange will handle setting the current user
   };
 
   return {
