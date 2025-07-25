@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { useTasks } from '@/context/task-store-provider';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Flame, Loader2 } from 'lucide-react';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -42,7 +42,13 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-2 mb-6 text-2xl font-semibold">
+          <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Flame className="w-6 h-6" />
+          </div>
+          <h1>FIRE Tasks</h1>
+      </div>
       <Card className="w-full max-w-sm">
         <form onSubmit={handleSubmit}>
           <CardHeader>
