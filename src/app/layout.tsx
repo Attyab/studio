@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AppShell } from '@/components/app-shell';
 import { Toaster } from '@/components/ui/toaster';
+import { TaskStoreProvider } from '@/context/task-store-provider';
 
 export const metadata: Metadata = {
   title: 'Team Task Manager - FIRE',
@@ -24,7 +24,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppShell>{children}</AppShell>
+        <TaskStoreProvider>
+          {children}
+        </TaskStoreProvider>
         <Toaster />
       </body>
     </html>
