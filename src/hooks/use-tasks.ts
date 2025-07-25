@@ -31,7 +31,7 @@ export function useTaskStore() {
       console.error('Error fetching tasks:', tasksError);
       setError(tasksError);
     } else {
-      const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
+      const formattedTasks = tasksData.map(t => ({...t, id: t.id, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id, due_date: t.due_date}));
       setTasks(formattedTasks);
     }
   }, [supabase]);
@@ -41,7 +41,7 @@ export function useTaskStore() {
         let { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
         
         if (profileError || !profile) {
-            console.error("Could not fetch user profile from DB. Attempting to create it.", profileError);
+            console.error("Could not fetch user profile from DB.", profileError);
             
             // If the profile doesn't exist, create it. This can happen if a user was created before the trigger was in place.
             const { data: newProfile, error: insertError } = await supabase
@@ -115,11 +115,18 @@ export function useTaskStore() {
   const addTask = async (task: Omit<Task, 'id'| 'assignee_id' | 'due_date'>) => {
     if (!currentUser) throw new Error("User must be logged in to add a task");
     
-    const { data, error } = await supabase.from('tasks').insert([{ 
-        ...task,
-        assignee_id: task.assigneeId,
-        due_date: task.dueDate?.toISOString() 
-    }]).select().single();
+    // Create a new object for insertion, ensuring we don't send extra fields
+    const { title, description, status, priority, assigneeId, dueDate } = task;
+    const taskToInsert = {
+      title,
+      description,
+      status,
+      priority,
+      assignee_id: assigneeId,
+      due_date: dueDate ? dueDate.toISOString() : null,
+    };
+
+    const { data, error } = await supabase.from('tasks').insert([taskToInsert]).select().single();
 
     if (error) {
         console.error('Error adding task:', error);
@@ -128,19 +135,32 @@ export function useTaskStore() {
     }
 
     if (data) {
-        const newTask: Task = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
+        const newTask: Task = {
+          ...data, 
+          dueDate: data.due_date ? new Date(data.due_date) : undefined, 
+          assigneeId: data.assignee_id, 
+          due_date: data.due_date
+        };
         setTasks(prevTasks => [...prevTasks, newTask]);
     }
   };
 
   const updateTask = async (updatedTask: Task) => {
+     // Create a new object for update, ensuring we don't send extra fields
+    const { id, title, description, status, priority, assigneeId, dueDate } = updatedTask;
+    const taskToUpdate = {
+      id,
+      title,
+      description,
+      status,
+      priority,
+      assignee_id: assigneeId,
+      due_date: dueDate ? dueDate.toISOString() : null,
+    };
+
     const { data, error } = await supabase
         .from('tasks')
-        .update({ 
-            ...updatedTask, 
-            assignee_id: updatedTask.assigneeId, 
-            due_date: updatedTask.dueDate?.toISOString()
-        })
+        .update(taskToUpdate)
         .eq('id', updatedTask.id)
         .select()
         .single();
@@ -152,7 +172,12 @@ export function useTaskStore() {
     }
     
     if (data) {
-        const newTask: Task = {...data, dueDate: data.due_date ? new Date(data.due_date) : undefined, assigneeId: data.assignee_id};
+        const newTask: Task = {
+            ...data, 
+            dueDate: data.due_date ? new Date(data.due_date) : undefined, 
+            assigneeId: data.assignee_id,
+            due_date: data.due_date
+        };
         setTasks(prevTasks => prevTasks.map(task => task.id === newTask.id ? newTask : task));
     }
   };
@@ -213,7 +238,6 @@ export function useTaskStore() {
       options: {
         data: {
           full_name: name,
-          avatar_url: `https://placehold.co/128x128.png`,
         },
       },
     });

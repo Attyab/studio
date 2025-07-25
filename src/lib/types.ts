@@ -18,5 +18,5 @@ export interface Task {
   priority: Priority;
   dueDate?: Date;
   assigneeId: string;
-  due_date: string;
+  due_date: string | null;
 }
