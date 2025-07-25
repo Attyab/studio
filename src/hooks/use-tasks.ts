@@ -7,18 +7,12 @@ import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import { PostgrestError, User as SupabaseUser, SupabaseClient } from '@supabase/supabase-js';
 
 export function useTaskStore() {
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabase] = useState<SupabaseClient>(() => getSupabaseBrowserClient());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<PostgrestError | null>(null);
-
-  useEffect(() => {
-    // Initialize Supabase client on the client-side
-    const supabaseClient = getSupabaseBrowserClient();
-    setSupabase(supabaseClient);
-  }, []);
 
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null, supabaseClient: SupabaseClient) => {
     if (sessionUser) {
@@ -42,8 +36,6 @@ export function useTaskStore() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
-
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       await handleUserSession(session?.user ?? null, supabase);
