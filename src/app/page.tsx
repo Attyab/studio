@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useTasks } from "@/context/task-store-provider";
@@ -8,9 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/app-shell";
 
 function DashboardContent() {
-  const { currentUser, getTasksByUserId } = useTasks();
+  const { currentUser, getTasksByUserId, loading } = useTasks();
 
-  if (!currentUser) {
+  if (loading || !currentUser) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

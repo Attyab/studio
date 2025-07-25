@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -15,18 +16,29 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useTasks } from '@/context/task-store-provider';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signup } = useTasks();
+  const { signup, loading } = useTasks();
   const router = useRouter();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    signup(name, email, password);
-    router.push('/');
+    try {
+      await signup(name, email, password);
+      router.push('/');
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Signup Failed",
+            description: error.message,
+        });
+    }
   };
 
   return (
@@ -42,7 +54,7 @@ export default function SignupPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="full-name">Full name</Label>
-              <Input id="full-name" placeholder="John Doe" required value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="full-name" placeholder="John Doe" required value={name} onChange={(e) => setName(e.target.value)} disabled={loading}/>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
@@ -53,15 +65,17 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading}/>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col">
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
               Create account
             </Button>
             <div className="mt-4 text-center text-sm">

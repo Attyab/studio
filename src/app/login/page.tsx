@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -16,17 +17,18 @@ import Link from "next/link";
 import { useTasks } from "@/context/task-store-provider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login } = useTasks();
+  const { login, loading } = useTasks();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = login(email, password);
+    const success = await login(email, password);
     if (success) {
       router.push("/");
     } else {
@@ -58,6 +60,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -68,11 +71,15 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col">
-            <Button type="submit" className="w-full">Sign in</Button>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+              Sign in
+            </Button>
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{' '}
               <Link href="/signup" className="underline">

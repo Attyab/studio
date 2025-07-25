@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -22,6 +23,7 @@ import {
   Flame,
   Bell,
   LogOut,
+  Loader2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -41,14 +43,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from './ui/skeleton';
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { users, currentUser, changeCurrentUser, logout } = useTasks();
+  const { users, currentUser, changeCurrentUser, logout, loading } = useTasks();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/login');
   };
 
@@ -90,7 +93,8 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         <SidebarFooter>
             <div className="p-2 space-y-2">
                 <label htmlFor="user-select" className="text-xs font-medium text-sidebar-foreground/70">CURRENT USER</label>
-                {currentUser && (
+                {loading && <Skeleton className="h-10 w-full" />}
+                {!loading && currentUser && (
                     <Select value={currentUser.id} onValueChange={changeCurrentUser}>
                         <SelectTrigger id="user-select" className="w-full">
                            <SelectValue>
@@ -131,10 +135,12 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                      <Button variant="ghost" className="relative w-8 h-8 rounded-full">
+                       {loading ? <Skeleton className="w-8 h-8 rounded-full"/> : 
                         <Avatar>
                           <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} data-ai-hint="woman portrait"/>
                           <AvatarFallback>{currentUser?.initials}</AvatarFallback>
                         </Avatar>
+                       }
                       </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -157,25 +163,35 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useTasks();
+  const { currentUser, loading } = useTasks();
   const router = useRouter();
   const pathname = usePathname();
 
   React.useEffect(() => {
-    if (!currentUser && pathname !== '/login' && pathname !== '/signup') {
+    if (!loading && !currentUser && pathname !== '/login' && pathname !== '/signup') {
       router.push('/login');
     }
-  }, [currentUser, pathname, router]);
+  }, [currentUser, loading, pathname, router]);
+
+  if (loading && pathname !== '/login' && pathname !== '/signup') {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   if (!currentUser && (pathname === '/login' || pathname === '/signup')) {
     return <>{children}</>;
   }
   
-  if (!currentUser) {
-    return null; 
+  if (!currentUser && !loading) {
+    return null;
+  }
+  
+  if (currentUser) {
+    return <AppShellContent>{children}</AppShellContent>;
   }
 
-  return (
-    <AppShellContent>{children}</AppShellContent>
-  );
+  return <>{children}</>;
 }
