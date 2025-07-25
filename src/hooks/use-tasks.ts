@@ -2,19 +2,26 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import { Task, User, Priority, Status } from '@/lib/types';
+import { Task, User } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
-import { PostgrestError, User as SupabaseUser } from '@supabase/supabase-js';
+import { PostgrestError, User as SupabaseUser, SupabaseClient } from '@supabase/supabase-js';
 
 export function useTaskStore() {
-  const supabase = getSupabaseBrowserClient();
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<PostgrestError | null>(null);
 
+  useEffect(() => {
+    // getSupabaseBrowserClient will only be called on the client side,
+    // ensuring process.env variables are available.
+    setSupabase(getSupabaseBrowserClient());
+  }, []);
+
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
+    if (!supabase) return;
     if (sessionUser) {
       const { data: userProfile, error } = await supabase
         .from('users')
@@ -36,6 +43,8 @@ export function useTaskStore() {
   }, [supabase]);
 
   useEffect(() => {
+    if (!supabase) return;
+
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       await handleUserSession(session?.user ?? null);
@@ -55,6 +64,7 @@ export function useTaskStore() {
 
 
   const fetchUsersAndTasks = useCallback(async () => {
+    if (!supabase) return;
     setLoading(true);
     const { data: usersData, error: usersError } = await supabase.from('users').select('*');
     if (usersError) {
@@ -76,7 +86,7 @@ export function useTaskStore() {
   }, [supabase]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && supabase) {
         fetchUsersAndTasks();
 
         const changes = supabase.channel('table-db-changes')
@@ -111,7 +121,7 @@ export function useTaskStore() {
   );
 
   const addTask = useCallback(async (task: Omit<Task, 'id' | 'due_date' | 'assignee_id'>) => {
-    if (!currentUser) throw new Error("User must be logged in to add a task");
+    if (!currentUser || !supabase) throw new Error("User must be logged in to add a task");
     
     const newTask = {
         title: task.title,
@@ -130,6 +140,7 @@ export function useTaskStore() {
   }, [supabase, currentUser]);
 
   const updateTask = useCallback(async (updatedTask: Task) => {
+    if (!supabase) return;
     const taskToUpdate = {
         title: updatedTask.title,
         description: updatedTask.description,
@@ -147,6 +158,7 @@ export function useTaskStore() {
   }, [supabase]);
 
   const deleteTask = useCallback(async (taskId: string) => {
+    if (!supabase) return;
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
     if (error) {
         console.error("Error deleting task:", error);
@@ -155,6 +167,7 @@ export function useTaskStore() {
   }, [supabase]);
   
   const changeCurrentUser = useCallback(async (userId: string) => {
+      if (!supabase) return;
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user?.id === userId) {
@@ -166,6 +179,7 @@ export function useTaskStore() {
   }, [supabase, handleUserSession]);
 
   const login = async (email: string, password?: string): Promise<boolean> => {
+    if (!supabase) return false;
     if (!password) return false;
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -178,6 +192,7 @@ export function useTaskStore() {
   };
 
   const logout = async () => {
+    if (!supabase) return;
     setLoading(true);
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -187,6 +202,7 @@ export function useTaskStore() {
   };
 
   const signup = async (name: string, email: string, password?: string) => {
+    if (!supabase) throw new Error("Supabase client not initialized");
     if (!password) {
         throw new Error("Password is required for signup.");
     }
