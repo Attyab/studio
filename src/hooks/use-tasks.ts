@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Task, User } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import { PostgrestError, User as SupabaseUser, SupabaseClient } from '@supabase/supabase-js';
-import { users as dummyUsers } from '@/lib/data';
+import { users as dummyUsers, tasks as dummyTasks } from '@/lib/data';
 
 export function useTaskStore() {
   const [supabase] = useState<SupabaseClient>(() => getSupabaseBrowserClient());
@@ -68,6 +68,14 @@ export function useTaskStore() {
       setUsers(allUsers as User[]);
     }
 
+    // Load dummy tasks as a workaround for RLS issues
+    const formattedTasks = dummyTasks.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
+    setTasks(formattedTasks as unknown as Task[]);
+
+
+    // The original Supabase call is commented out to avoid the RLS error.
+    // To re-enable, fix the Supabase project's RLS policies for the 'tasks' table.
+    /*
     const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*');
      if (tasksError) {
       console.error('Error fetching tasks:', tasksError);
@@ -76,6 +84,7 @@ export function useTaskStore() {
       const formattedTasks = tasksData.map(t => ({...t, dueDate: t.due_date ? new Date(t.due_date) : undefined, assigneeId: t.assignee_id}));
       setTasks(formattedTasks as unknown as Task[]);
     }
+    */
     setLoading(false);
   }, [supabase]);
 

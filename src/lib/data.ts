@@ -18,4 +18,37 @@ export const users: User[] = [
     }
 ];
 
-export const tasks: Task[] = [];
+export const tasks: Omit<Task, 'id' | 'dueDate'>[] = [
+    {
+        title: 'Design the new dashboard layout',
+        description: 'Create mockups and prototypes for the new dashboard design.',
+        status: 'In Progress',
+        priority: 'High',
+        assigneeId: '1',
+        due_date: '2024-08-15',
+    },
+    {
+        title: 'Develop the authentication flow',
+        description: 'Implement login, signup, and logout functionality using Supabase.',
+        status: 'To Do',
+        priority: 'High',
+        assigneeId: '2',
+        due_date: '2024-08-20',
+    },
+    {
+        title: 'Set up the task management API',
+        description: 'Create API endpoints for creating, reading, updating, and deleting tasks.',
+        status: 'To Do',
+        priority: 'Medium',
+        assigneeId: '1',
+        due_date: '2024-08-25',
+    },
+    {
+        title: 'Write documentation for the API',
+        description: 'Document all the API endpoints, request/response formats, and authentication requirements.',
+        status: 'Done',
+        priority: 'Low',
+        assigneeId: '2',
+        due_date: '2024-08-10',
+    }
+].map((task, index) => ({...task, id: (index + 1).toString(), dueDate: new Date(task.due_date) }));
