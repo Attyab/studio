@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import { Task, User, Status, Priority } from '@/lib/types';
+import { Task, User } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import type { PostgrestError, AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -38,17 +38,39 @@ export function useTaskStore() {
 
   const handleUserSession = useCallback(async (sessionUser: SupabaseUser | null) => {
     if (sessionUser) {
-        const { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
+        let { data: profile, error: profileError } = await supabase.from('users').select('*').eq('id', sessionUser.id).single();
         
         if (profileError || !profile) {
-            console.error("Could not fetch user profile from DB.", profileError);
-             setCurrentUser(null);
-        } else {
+            console.error("Could not fetch user profile from DB. Attempting to create it.", profileError);
+            
+            // If the profile doesn't exist, create it. This can happen if a user was created before the trigger was in place.
+            const { data: newProfile, error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: sessionUser.id,
+                email: sessionUser.email!,
+                // Attempt to get name from metadata, otherwise fallback to email
+                name: sessionUser.user_metadata?.full_name || sessionUser.email!.split('@')[0],
+                avatar: sessionUser.user_metadata?.avatar_url || `https://placehold.co/128x128.png`
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error("Failed to create missing user profile.", insertError);
+              setCurrentUser(null);
+            } else {
+              profile = newProfile;
+            }
+        }
+        
+        if (profile) {
             const user: User = {...profile, initials: profile.name.split(' ').map((n: string) => n[0]).join('')};
             setCurrentUser(user);
             await fetchTasks();
             await fetchUsers();
         }
+
     } else {
         setCurrentUser(null);
         setTasks([]);
@@ -185,42 +207,24 @@ export function useTaskStore() {
     }
     setLoading(true);
 
-    // 1. Sign up the user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+          avatar_url: `https://placehold.co/128x128.png`,
+        },
+      },
     });
 
-    if (authError) {
-        console.error('Signup failed:', authError.message);
+    if (error) {
+        console.error('Signup failed:', error);
         setLoading(false);
-        throw authError;
+        throw error;
     }
     
-    if (!authData.user) {
-        const err = new Error("Signup succeeded but no user was returned.");
-        console.error(err);
-        setLoading(false);
-        throw err;
-    }
-
-    // 2. Manually insert the user profile into the public.users table
-    const { error: insertError } = await supabase.from('users').insert({
-        id: authData.user.id,
-        name: name,
-        email: email,
-        avatar: `https://placehold.co/128x128.png`
-    });
-
-    if (insertError) {
-        console.error('Error creating user profile:', insertError.message);
-        setError(insertError);
-        // Optional: We could try to clean up the auth user if profile creation fails,
-        // but for now we'll just log the error. The user will exist in auth but not have a profile.
-    }
-    
-    // onAuthStateChange will handle setting the current user and fetching data,
-    // which will now find the profile we just created.
+    // onAuthStateChange will handle setting the current user and fetching data
     setLoading(false);
   };
 
