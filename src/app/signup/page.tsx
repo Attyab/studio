@@ -33,11 +33,19 @@ export default function SignupPage() {
       await signup(name, email, password);
       router.push('/');
     } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "Signup Failed",
-            description: error.message,
-        });
+        if (error.message.includes("User already registered")) {
+            toast({
+                variant: "destructive",
+                title: "Account Exists",
+                description: "This email is already registered. Please sign in instead.",
+            });
+        } else {
+             toast({
+                variant: "destructive",
+                title: "Signup Failed",
+                description: error.message,
+            });
+        }
     }
   };
 
