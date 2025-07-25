@@ -27,6 +27,7 @@ import {
   Moon,
   Sun,
   Users,
+  LayoutGrid,
 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -80,6 +81,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
   const menuItems = [
     { href: '/', label: 'My Dashboard', icon: LayoutDashboard },
     { href: '/tasks', label: 'All Tasks', icon: ListTodo },
+    { href: '/board', label: 'Board', icon: LayoutGrid },
     { href: '/calendar', label: 'Calendar', icon: CalendarDays },
     { href: '/team', label: 'Teams', icon: Users },
   ];

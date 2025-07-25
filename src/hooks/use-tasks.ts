@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
-import { Task, User, Team } from '@/lib/types';
+import { Task, User, Team, Status } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/lib/supabase-client';
 import type { PostgrestError, AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -206,6 +206,14 @@ export function useTaskStore() {
     }
   };
 
+  const updateTaskStatusInStore = (taskId: string, newStatus: Status) => {
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, status: newStatus } : task
+      )
+    );
+  };
+
   const deleteTask = async (taskId: string) => {
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
@@ -293,21 +301,40 @@ export function useTaskStore() {
     }
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          full_name: name,
-          avatar_url: `https://placehold.co/128x128.png`
+          full_name: name
         },
       },
     });
 
-    if (error) {
-        console.error('Signup failed:', error);
-        setLoading(false);
-        throw error;
+     if (error) {
+      console.error('Signup failed:', error);
+      setLoading(false);
+      throw error;
+    }
+    
+    if (!authData.user) {
+      console.error('Signup failed: No user returned');
+      setLoading(false);
+      throw new Error('Signup failed: No user returned');
+    }
+
+    // Manually insert into public.users table
+    const { error: insertError } = await supabase.from('users').insert({
+      id: authData.user.id,
+      name,
+      email,
+      avatar: `https://placehold.co/128x128.png`
+    });
+
+    if (insertError) {
+      console.error('Failed to create user profile after signup:', insertError);
+      // Even if this fails, auth user exists, so we proceed. 
+      // The login logic will attempt to fix the profile.
     }
     
     // onAuthStateChange will handle setting the current user and fetching data
@@ -325,6 +352,7 @@ export function useTaskStore() {
     getTaskById,
     addTask,
     updateTask,
+    updateTaskStatusInStore,
     deleteTask,
     addTeam,
     changeCurrentUser,
